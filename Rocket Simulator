@@ -1,0 +1,126 @@
+import math
+
+_delta_v = 0
+_distance = 0
+m_payload = 1.5         # mass of payload
+
+# SRB Ariane 4
+_m_srb = 12.66
+_m_srb_fuel = 9.5
+_t_srb = 34
+m_dot_srb = _m_srb_fuel / _t_srb
+
+no_srb = 4              # number of SRB
+_thr_srb = 66.28         # thrust of a single SRB, tonnes, SL
+_Isp_srb = 237.2         # SL
+
+# booster - Long March CZ-5
+_m_booster = 165
+_m_boosters_fuel = 152
+_t_booster = 180
+m_dot_booster = _m_boosters_fuel / _t_booster
+
+no_boosters = 4         # number of RB
+_thr_booster = 244.7     # thrust of a single RB, tonnes, SL
+_Isp_booster_SL = 300
+_Isp_booster_VAC = 335
+
+# 1st stage   H-IIB                                   # 1st stage Long March CZ-5             H-IIB
+_m_stage_1 = 202                                       # m_stage_1 = 175                       m_stage_1 = 202
+_m_stage_1_fuel = 177.8                                # m_stage_1_fuel = 158                  m_stage_1_fuel = 177.8
+_t_stage_1 = 352                                       # t_stage_1 = 500                       t_stage_1 = 352
+
+m_dot_stage_1 = _m_stage_1_fuel / _t_stage_1
+_thr_stage_1 = 179                                     # thr_stage_1 = 110                     thr_stage_1 = 179
+_Isp_stage_1_SL = 333                                  # Isp_stage_1_SL = 333                  Isp_stage_1_SL = 333
+_Isp_stage_1_VAC = 440                                 # Isp_stage_1_VAC = 438                 Isp_stage_1_VAC = 440
+#                                                       sigma = 0.0885                        sigma = 0.107
+
+# 2nd stage   ESC-A
+_m_stage_2 = 19.4
+_m_stage_2_fuel = 14.9
+_t_stage_2 = 945
+m_dot_stage_2 = _m_stage_2_fuel / _t_stage_2
+
+_Isp_stage_2_VAC = 446
+
+# total mass
+m_tot = no_srb * _m_srb + no_boosters * _m_booster + _m_stage_1 + _m_stage_2 + m_payload
+
+# average Isp with SRBs, Sea Level
+Isp_ave_srb = (no_boosters * _thr_booster + _thr_stage_1 + no_srb * _thr_srb) / \
+              (no_boosters * (_thr_booster / _Isp_booster_SL) + _thr_stage_1 / _Isp_stage_1_SL + no_srb * (
+                      _thr_srb / _Isp_srb))
+
+# average Isp during LM boosters phase, assuming SL
+Isp_ave = (no_boosters * _thr_booster + _thr_stage_1) / \
+          (no_boosters * (_thr_booster / _Isp_booster_VAC) + _thr_stage_1 / _Isp_stage_1_VAC)
+
+
+print("Total mass of the rocket:", m_tot,
+      "\nthrust total at start:", no_srb * _thr_srb + no_boosters * _thr_booster + _thr_stage_1)
+print()
+
+# check if thrust at start is greater than the total weight
+
+if (no_srb * _thr_srb + no_boosters * _thr_booster + _thr_stage_1) > m_tot:
+    # delta v SRB
+    # assuming SL ISP
+    for i in range(1, _t_srb):
+        change_v = Isp_ave_srb * 9.81 * math.log(m_tot / (m_tot - no_srb * m_dot_srb -
+                                                          no_boosters * m_dot_booster - m_dot_stage_1))
+
+        m_tot -= (no_srb * m_dot_srb + no_boosters * m_dot_booster + m_dot_stage_1)
+        _delta_v += change_v
+        _distance += _delta_v
+
+    # speed gained from srb phase
+    delta_v_srb = _delta_v
+
+    # change of mass after srb phase
+    m_tot = no_boosters * (_m_booster - m_dot_booster * _t_srb) + \
+            (_m_stage_1 - m_dot_stage_1 * _t_srb) + _m_stage_2 + m_payload
+
+    print("delta v srb:", _delta_v, "distance flown:", _distance)
+    # based on the distance flown (oscillating ~ 7-9km) the atmosphere is around 40-30% density of SL
+    # Henceforth, I assumed the use of Isp_VAC, although it overestimates the rocket performance
+    print()
+
+    # delta v LM Rocket Booster phase
+    for i in range(_t_srb, _t_booster):
+        change_v = Isp_ave * 9.81 * math.log(m_tot / (m_tot - no_boosters * m_dot_booster - m_dot_stage_1))
+        m_tot -= (no_boosters * m_dot_booster + m_dot_stage_1)
+        _delta_v += change_v
+        _distance += _delta_v
+
+    # speed after this phase
+    delta_v_1_time = _delta_v
+
+    print("delta v 0:", _delta_v, "gain v:", delta_v_1_time - delta_v_srb)
+    print()
+
+    # rest of 1st stage
+    m_tot = (_m_stage_1 - m_dot_stage_1 * _t_booster) + _m_stage_2 + m_payload
+
+    for i in range(_t_booster, _t_stage_1):
+        change_v = _Isp_stage_1_VAC * 9.81 * math.log(m_tot / (m_tot - m_dot_stage_1))
+        m_tot -= m_dot_stage_1
+        _delta_v += change_v
+
+    # speed after 1st stage
+    delta_v_2_time = _delta_v
+
+    print("delta v 1:", _delta_v, "gain v:", _delta_v - delta_v_1_time)
+    print()
+
+    # 2nd stage delta v
+    m_tot = _m_stage_2 + m_payload
+
+    for i in range(_t_stage_1, (_t_stage_1 + _t_stage_2)):
+        change_v = _Isp_stage_2_VAC * 9.81 * math.log(m_tot / (m_tot - m_dot_stage_2))
+        m_tot -= m_dot_stage_2
+        _delta_v += change_v
+    print("delta v 2:", _delta_v, "gain v:", _delta_v - delta_v_2_time)
+
+else:
+    print("The rocket will not lift off!")
