@@ -217,9 +217,7 @@ G_loads_array = np.array(g_load)
 gamma = [90] * _t_srb
 gamma = np.append(gamma, angle)
 gamma = np.append(gamma, [final_angle] * (_t_stage_2 + _t_stage_1 - 1 - _t_booster))
-print(gamma)
 
-print(len(gamma), len(time))
 # graphs
 fig, (TW, velocity_horizontal, altitude, loads, flight_angle) = plt.subplots(5, 1)
 
